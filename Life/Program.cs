@@ -28,7 +28,7 @@ namespace cli_life
 
     public class JSONController
     {
-        public static LifeProperty DeserializeFromJSON(string file_name)
+        public static LifeProperty Load_from_fson(string file_name)
         {
             string jsonString = File.ReadAllText(file_name);
 
@@ -92,7 +92,7 @@ namespace cli_life
     {
         public bool IsAlive;
         public readonly List<Cell> neighbors = [];
-        private bool IsAliveNext;
+        public bool IsAliveNext;
         public void DetermineNextLiveState()
         {
             int liveNeighbors = neighbors.Where(x => x.IsAlive).Count();
@@ -219,6 +219,7 @@ namespace cli_life
 
     public class PatternClassifier
     {
+        private readonly string path_figure;
         private static readonly Dictionary<string, string> FigureFiles = new()
         {
             ["Block"] = "block.txt",
@@ -231,19 +232,19 @@ namespace cli_life
         private readonly Dictionary<string, bool[,]> _patterns;
         private bool[,] _visited;
 
-        public PatternClassifier()
+        public PatternClassifier(string path_figure)
         {
-            _patterns = LoadPatterns();
+            this.path_figure = path_figure;
+            _patterns = LoadPatterns(this.path_figure);
         }
 
-        private Dictionary<string, bool[,]> LoadPatterns()
+        private Dictionary<string, bool[,]> LoadPatterns(string path_figure)
         {
             var patterns = new Dictionary<string, bool[,]>();
-            string dir = Path.Combine(Directory.GetCurrentDirectory(), "figures");
 
             foreach (var kvp in FigureFiles)
             {
-                string path = Path.Combine(dir, kvp.Value);
+                string path = Path.Combine(path_figure, kvp.Value);
                 if (File.Exists(path))
                 {
                     patterns[kvp.Key] = ReadPattern(path);
@@ -318,7 +319,7 @@ namespace cli_life
             return pattern;
         }
 
-        private string Classify(bool[,] pattern)
+        public string Classify(bool[,] pattern)
         {
             foreach (var kvp in _patterns)
                 if (PatternEquals(pattern, kvp.Value))
@@ -361,18 +362,16 @@ namespace cli_life
             string proj_path = Directory.GetCurrentDirectory();
             string prop_path = Path.Combine(proj_path, "Property.json");
             string file_path = Path.Combine(proj_path, "LifeBoard.txt");
-            LifeProperty life_property = JSONController.DeserializeFromJSON(prop_path);
+            LifeProperty life_property = JSONController.Load_from_fson(prop_path);
             Reset(life_property);
             RunGameLoop(file_path);
-            //Avg_gen_stab(prop_path, file_path);
-            //For_data(prop_path, file_path);
-
         }
         static void Avg_gen_stab(string prop_path, string file_path)
         {
             double density = 0.1;
             int number_files = 10;
             List<int> generation_density = [];
+            LifeProperty life_property = JSONController.Load_from_fson(prop_path);
 
             string outputDir = Path.Combine(Directory.GetCurrentDirectory(), "AvgGenerationStab");
             if (!Directory.Exists(outputDir))
@@ -381,10 +380,8 @@ namespace cli_life
             }
             while (density < 0.9)
             {
-                LifeProperty life_property = JSONController.DeserializeFromJSON(prop_path);
                 life_property.LifeDensity = density;
                 generation_density.Clear();
-
                 string fileName = $"density_{density:0.0}.txt";
                 string filePath = Path.Combine(outputDir, fileName);
                 string line;
@@ -399,8 +396,6 @@ namespace cli_life
                     generation_density.Add(generation);
                     line = $"{i + 1} - запуск: количество поколений: {generation}\n";
                     File.AppendAllText(filePath, line);
-
-
                 }
                 line = $"Среднее колличество поколений: {Math.Round(generation_density.Average())}\n";
                 File.AppendAllText(filePath, line);
@@ -411,14 +406,13 @@ namespace cli_life
         {
             double density = 0;
             double step_density = 0.02;
+            LifeProperty life_property = JSONController.Load_from_fson(prop_path);
             string outputfile = Path.Combine(Directory.GetCurrentDirectory(), "data.txt");
             string line = "Density  Generation\n";
             File.AppendAllText(outputfile, line);
             while (density < 1.01)
             {
-                LifeProperty life_property = JSONController.DeserializeFromJSON(prop_path);
                 life_property.LifeDensity = density;
-
                 Reset(life_property);
                 generation = 0;
                 stable_phases = 0;
@@ -525,7 +519,8 @@ namespace cli_life
         }
         static void DisplayClassification()
         {
-            var classifier = new PatternClassifier();
+            string dir = Path.Combine(Directory.GetCurrentDirectory(), "figures");
+            var classifier = new PatternClassifier(dir);
             var results = classifier.ClassifyBoard(board);
 
             Console.WriteLine("\n Найденные фигуры:");
