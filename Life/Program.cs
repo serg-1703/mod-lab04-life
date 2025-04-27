@@ -1,4 +1,4 @@
-﻿﻿using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -12,7 +12,7 @@ namespace cli_life
 {
     public class LifeProperty
     {
-        public LifeProperty() {}
+        public LifeProperty() { }
         public LifeProperty(int BoardWidth, int BoardHeight, int BoardCellSize, double LifeDensity)
         {
             this.BoardWidth = BoardWidth;
@@ -169,11 +169,11 @@ namespace cli_life
         }
         public (int totalCells, int combinations) CountElements()
         {
-            int totalCells = 0; 
-            int combinations = 0; 
+            int totalCells = 0;
+            int combinations = 0;
 
             Array.Clear(visited, 0, visited.Length);
-            
+
             for (int x = 0; x < Columns; x++)
             {
                 for (int y = 0; y < Rows; y++)
@@ -181,8 +181,8 @@ namespace cli_life
                     if (!visited[x, y] && Cells[x, y].IsAlive)
                     {
                         int combinationSize = ExploreCombination(x, y);
-                        totalCells += combinationSize; 
-                        
+                        totalCells += combinationSize;
+
                         if (combinationSize > 1)
                         {
                             combinations++;
@@ -190,7 +190,7 @@ namespace cli_life
                     }
                 }
             }
-            
+
             return (totalCells, combinations);
         }
 
@@ -199,22 +199,22 @@ namespace cli_life
             if (x < 0 || x >= Columns || y < 0 || y >= Rows || visited[x, y] || !Cells[x, y].IsAlive)
                 return 0;
             visited[x, y] = true;
-            int size = 1; 
+            int size = 1;
             for (int dx = -1; dx <= 1; dx++)
             {
                 for (int dy = -1; dy <= 1; dy++)
                 {
-                    if (dx == 0 && dy == 0) continue; 
-                    
+                    if (dx == 0 && dy == 0) continue;
+
                     int nx = (x + dx + Columns) % Columns;
                     int ny = (y + dy + Rows) % Rows;
-                    
+
                     size += ExploreCombination(nx, ny);
                 }
             }
             return size;
         }
-        
+
     }
 
     public class PatternClassifier
@@ -256,11 +256,11 @@ namespace cli_life
         {
             var lines = File.ReadAllLines(path).Where(l => !string.IsNullOrWhiteSpace(l)).ToArray();
             var pattern = new bool[lines[0].Length, lines.Length];
-            
+
             for (int y = 0; y < lines.Length; y++)
                 for (int x = 0; x < lines[y].Length; x++)
                     pattern[x, y] = lines[y][x] == '1';
-            
+
             return pattern;
         }
 
@@ -291,7 +291,7 @@ namespace cli_life
             while (queue.Count > 0)
             {
                 var (x, y) = queue.Dequeue();
-                if (x < 0 || x >= board.Columns || y < 0 || y >= board.Rows || 
+                if (x < 0 || x >= board.Columns || y < 0 || y >= board.Rows ||
                     _visited[x, y] || !board.Cells[x, y].IsAlive) continue;
 
                 _visited[x, y] = true;
@@ -300,7 +300,7 @@ namespace cli_life
                 for (int dx = -1; dx <= 1; dx++)
                     for (int dy = -1; dy <= 1; dy++)
                         if (dx != 0 || dy != 0)
-                            queue.Enqueue(((x + dx + board.Columns) % board.Columns, 
+                            queue.Enqueue(((x + dx + board.Columns) % board.Columns,
                                         (y + dy + board.Rows) % board.Rows));
             }
             return cells;
@@ -311,10 +311,10 @@ namespace cli_life
             int minX = cells.Min(c => c.x), maxX = cells.Max(c => c.x);
             int minY = cells.Min(c => c.y), maxY = cells.Max(c => c.y);
             var pattern = new bool[maxX - minX + 1, maxY - minY + 1];
-            
+
             foreach (var (x, y) in cells)
                 pattern[x - minX, y - minY] = true;
-            
+
             return pattern;
         }
 
@@ -323,20 +323,20 @@ namespace cli_life
             foreach (var kvp in _patterns)
                 if (PatternEquals(pattern, kvp.Value))
                     return kvp.Key;
-            
+
             return "Unknown";
         }
 
         private bool PatternEquals(bool[,] a, bool[,] b)
         {
-            if (a.GetLength(0) != b.GetLength(0) || a.GetLength(1) != b.GetLength(1)) 
+            if (a.GetLength(0) != b.GetLength(0) || a.GetLength(1) != b.GetLength(1))
                 return false;
-            
+
             for (int x = 0; x < a.GetLength(0); x++)
                 for (int y = 0; y < a.GetLength(1); y++)
-                    if (a[x, y] != b[x, y]) 
+                    if (a[x, y] != b[x, y])
                         return false;
-            
+
             return true;
         }
     }
@@ -352,7 +352,7 @@ namespace cli_life
             { ConsoleKey.D1, "glider.txt" },
             { ConsoleKey.D2, "blinker.txt" },
             { ConsoleKey.D3, "block.txt" },
-            { ConsoleKey.D4, "ellipse.txt" }, 
+            { ConsoleKey.D4, "ellipse.txt" },
             { ConsoleKey.D5, "hive.txt" }
         };
 
@@ -366,8 +366,10 @@ namespace cli_life
             RunGameLoop(file_path);
             //Avg_gen_stab(prop_path, file_path);
             //For_data(prop_path, file_path);
+
         }
-        static void Avg_gen_stab(string prop_path, string file_path){
+        static void Avg_gen_stab(string prop_path, string file_path)
+        {
             double density = 0.1;
             int number_files = 10;
             List<int> generation_density = [];
@@ -387,7 +389,8 @@ namespace cli_life
                 string filePath = Path.Combine(outputDir, fileName);
                 string line;
 
-                for (int i = 0; i < number_files; i++){
+                for (int i = 0; i < number_files; i++)
+                {
                     Reset(life_property);
                     generation = 0;
                     stable_phases = 0;
@@ -396,15 +399,16 @@ namespace cli_life
                     generation_density.Add(generation);
                     line = $"{i + 1} - запуск: количество поколений: {generation}\n";
                     File.AppendAllText(filePath, line);
-                    
-                    
+
+
                 }
                 line = $"Среднее колличество поколений: {Math.Round(generation_density.Average())}\n";
                 File.AppendAllText(filePath, line);
-                density+=0.1;
+                density += 0.1;
             }
         }
-        static void For_data(string prop_path, string file_path){
+        static void For_data(string prop_path, string file_path)
+        {
             double density = 0;
             double step_density = 0.02;
             string outputfile = Path.Combine(Directory.GetCurrentDirectory(), "data.txt");
@@ -422,19 +426,19 @@ namespace cli_life
                 RunGameLoop(file_path);
                 line = $"{Math.Round(density, 2)} {generation}\n";
                 File.AppendAllText(outputfile, line);
-                density+=step_density;
+                density += step_density;
             }
         }
 
 
         static bool RunGameLoop(string file_path)
-        { 
+        {
             while (true)
             {
                 if (!Click_handler(file_path))
                     break;
-                    
-                if(UpdateGame()) return true;
+
+                if (UpdateGame()) return true;
             }
             return false;
         }
@@ -442,11 +446,12 @@ namespace cli_life
         static bool UpdateGame()
         {
             Render();
-            generation+=1;
+            generation += 1;
             Console.WriteLine($"\n Поколение: {generation}");
             (int totalCells, int combinations_check) = DisplayElementCounts();
             DisplayClassification();
-            if(Check_stability(combinations_check)){
+            if (Check_stability(combinations_check))
+            {
                 Console.WriteLine("\n Достигнуто состояние стабильности");
                 return true;
             }
@@ -479,9 +484,9 @@ namespace cli_life
             Console.Write(output);
         }
 
-        static bool Click_handler(string file_path) 
+        static bool Click_handler(string file_path)
         {
-            if (!Console.KeyAvailable) 
+            if (!Console.KeyAvailable)
                 return true;
             var button = Console.ReadKey(true).Key;
             switch (button)
@@ -522,32 +527,40 @@ namespace cli_life
         {
             var classifier = new PatternClassifier();
             var results = classifier.ClassifyBoard(board);
-            
+
             Console.WriteLine("\n Найденные фигуры:");
             foreach (var kvp in results.Where(r => r.Value > 0))
             {
                 Console.WriteLine($"{kvp.Key}: {kvp.Value}");
             }
         }
-        static bool Check_stability(int combinations_check){
-            if (stable_phases == 0) {
-                stable_phases +=1;
+        static bool Check_stability(int combinations_check)
+        {
+            if (stable_phases == 0)
+            {
+                stable_phases += 1;
                 combinations = combinations_check;
             }
-            else {
-                if (combinations == combinations_check) {
-                    stable_phases +=1;
-                    if (stable_phases == min_stable_phases){
+            else
+            {
+                if (combinations == combinations_check)
+                {
+                    stable_phases += 1;
+                    if (stable_phases == min_stable_phases)
+                    {
                         return true;
                     }
                 }
-                else if(generation>=1000 && Math.Abs(combinations - combinations_check) == 1){
-                    stable_phases +=1;
-                    if (stable_phases == min_stable_phases){
+                else if (generation >= 1000 && Math.Abs(combinations - combinations_check) == 1)
+                {
+                    stable_phases += 1;
+                    if (stable_phases == min_stable_phases)
+                    {
                         return true;
                     }
                 }
-                else {
+                else
+                {
                     stable_phases = 1;
                     combinations = combinations_check;
                 }
