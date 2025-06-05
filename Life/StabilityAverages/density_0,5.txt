@@ -1,0 +1,11 @@
+1 - run: generations: 636
+2 - run: generations: 418
+3 - run: generations: 219
+4 - run: generations: 398
+5 - run: generations: 199
+6 - run: generations: 187
+7 - run: generations: 67
+8 - run: generations: 315
+9 - run: generations: 455
+10 - run: generations: 406
+Average generations: 330

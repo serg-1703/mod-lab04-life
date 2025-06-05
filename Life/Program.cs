@@ -8,142 +8,145 @@ using System.Text.Json;
 using System.IO;
 using System.Diagnostics.CodeAnalysis;
 
-namespace cli_life
+namespace GameOfLifeSimulator
 {
-    public class LifeProperty
+    public class SimulationSettings
     {
-        public LifeProperty() { }
-        public LifeProperty(int BoardWidth, int BoardHeight, int BoardCellSize, double LifeDensity)
+        public SimulationSettings() { }
+        public SimulationSettings(int Width, int Height, int CellDimension, double Density)
         {
-            this.BoardWidth = BoardWidth;
-            this.BoardHeight = BoardHeight;
-            this.BoardCellSize = BoardCellSize;
-            this.LifeDensity = LifeDensity;
+            this.Width = Width;
+            this.Height = Height;
+            this.CellDimension = CellDimension;
+            this.Density = Density;
         }
-        public int BoardWidth { get; set; }
-        public int BoardHeight { get; set; }
-        public int BoardCellSize { get; set; }
-        public double LifeDensity { get; set; }
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public int CellDimension { get; set; }
+        public double Density { get; set; }
     }
 
-    public class JSONController
+    public class JsonDataHandler
     {
-        public static LifeProperty Load_from_fson(string file_name)
+        public static SimulationSettings ImportSettings(string filename)
         {
-            string jsonString = File.ReadAllText(file_name);
-
-            return JsonSerializer.Deserialize<LifeProperty>(jsonString)!;
+            string jsonContent = File.ReadAllText(filename);
+            return JsonSerializer.Deserialize<SimulationSettings>(jsonContent)!;
         }
     }
-    public class TextController
-    {
-        public static void Save_life(Cell[,] the_cells, string file_name)
-        {
-            using StreamWriter save_life = new StreamWriter(file_name);
 
-            for (int row = 0; row < the_cells.GetLength(1); row++)
+    public class FileOperations
+    {
+        public static void ExportState(LifeCell[,] grid, string filename)
+        {
+            using StreamWriter writer = new StreamWriter(filename);
+
+            for (int y = 0; y < grid.GetLength(1); y++)
             {
-                for (int col = 0; col < the_cells.GetLength(0); col++)
+                for (int x = 0; x < grid.GetLength(0); x++)
                 {
-                    save_life.Write(the_cells[col, row].IsAlive ? '1' : '0');
+                    writer.Write(grid[x, y].Active ? '1' : '0');
                 }
-                save_life.Write("\n");
+                writer.Write("\n");
             }
         }
 
-        public static void Read_life(Cell[,] the_cells, string file_name)
+        public static void ImportState(LifeCell[,] grid, string filename)
         {
-            var lines = File.ReadAllLines(file_name);
-            int rows = the_cells.GetLength(1);
-            int col = the_cells.GetLength(0);
+            var fileContent = File.ReadAllLines(filename);
+            int rows = grid.GetLength(1);
+            int cols = grid.GetLength(0);
 
-            for (int y = 0; y < rows && y < lines.Length; y++)
+            for (int y = 0; y < rows && y < fileContent.Length; y++)
             {
-                for (int x = 0; x < col && x < lines[y].Length; x++)
+                for (int x = 0; x < cols && x < fileContent[y].Length; x++)
                 {
-                    the_cells[x, y].IsAlive = lines[y][x] == '1';
+                    grid[x, y].Active = fileContent[y][x] == '1';
                 }
             }
         }
 
-        public static void Load_figure(Cell[,] the_cells, string figureFilePath)
+        public static void InsertPattern(LifeCell[,] grid, string patternFile)
         {
-            var lines = File.ReadAllLines(figureFilePath);
-            int figureHeight = lines.Length;
-            int figureWidth = lines[0].Length;
+            var patternData = File.ReadAllLines(patternFile);
+            int patternRows = patternData.Length;
+            int patternCols = patternData[0].Length;
 
-            Random rand = new();
-            int startX = rand.Next(0, the_cells.GetLength(0) - figureWidth + 1);
-            int startY = rand.Next(0, the_cells.GetLength(1) - figureHeight + 1);
+            Random rnd = new();
+            int startX = rnd.Next(0, grid.GetLength(0) - patternCols + 1);
+            int startY = rnd.Next(0, grid.GetLength(1) - patternRows + 1);
 
-            for (int y = 0; y < figureHeight; y++)
+            for (int y = 0; y < patternRows; y++)
             {
-                for (int x = 0; x < figureWidth; x++)
+                for (int x = 0; x < patternCols; x++)
                 {
-                    if (startX + x < the_cells.GetLength(0) && startY + y < the_cells.GetLength(1))
+                    if (startX + x < grid.GetLength(0) && startY + y < grid.GetLength(1))
                     {
-                        the_cells[startX + x, startY + y].IsAlive = lines[y][x] == '1';
+                        grid[startX + x, startY + y].Active = patternData[y][x] == '1';
                     }
                 }
             }
         }
     }
-    public class Cell
+
+    public class LifeCell
     {
-        public bool IsAlive;
-        public readonly List<Cell> neighbors = [];
-        public bool IsAliveNext;
-        public void DetermineNextLiveState()
+        public bool Active;
+        public bool NextState;
+        public readonly List<LifeCell> AdjacentCells = new List<LifeCell>();
+
+        public void CalculateNextState()
         {
-            int liveNeighbors = neighbors.Where(x => x.IsAlive).Count();
-            if (IsAlive)
-                IsAliveNext = liveNeighbors == 2 || liveNeighbors == 3;
-            else
-                IsAliveNext = liveNeighbors == 3;
+            int liveNeighbors = AdjacentCells.Count(c => c.Active);
+            NextState = Active ? (liveNeighbors == 2 || liveNeighbors == 3) 
+                            : (liveNeighbors == 3);
         }
-        public void Advance()
+
+        public void UpdateState()
         {
-            IsAlive = IsAliveNext;
+            Active = NextState;
         }
     }
-    public class Board
+
+    public class LifeGrid
     {
-        public readonly Cell[,] Cells;
+        public readonly LifeCell[,] Grid;
         public readonly int CellSize;
-        public bool[,] visited;
+        private bool[,] visited;
+        private readonly Random random = new Random();
 
-        public int Columns { get { return Cells.GetLength(0); } }
-        public int Rows { get { return Cells.GetLength(1); } }
-        public int Width { get { return Columns * CellSize; } }
-        public int Height { get { return Rows * CellSize; } }
+        public int Columns => Grid.GetLength(0);
+        public int Rows => Grid.GetLength(1);
+        public int Width => Columns * CellSize;
+        public int Height => Rows * CellSize;
 
-        public Board(int width, int height, int cellSize, double liveDensity = .1)
+        public LifeGrid(int width, int height, int cellSize, double liveDensity = 0.1)
         {
-            CellSize = cellSize;
+            if (cellSize <= 0)
+                throw new ArgumentException("Cell size must be greater than zero", nameof(cellSize));
 
-            Cells = new Cell[width / cellSize, height / cellSize];
-            for (int x = 0; x < Columns; x++)
-                for (int y = 0; y < Rows; y++)
-                    Cells[x, y] = new Cell();
+            CellSize = cellSize;
+            Grid = new LifeCell[width / cellSize, height / cellSize];
+            visited = new bool[Columns, Rows];
+
+            // Инициализация всех ячеек
+            InitializeCells();
+
             ConnectNeighbors();
             Randomize(liveDensity);
-            visited = new bool[Columns, Rows];
         }
 
-        readonly Random rand = new Random();
-        public void Randomize(double liveDensity)
+        private void InitializeCells()
         {
-            foreach (var cell in Cells)
-                cell.IsAlive = rand.NextDouble() < liveDensity;
+            for (int x = 0; x < Columns; x++)
+            {
+                for (int y = 0; y < Rows; y++)
+                {
+                    Grid[x, y] = new LifeCell();
+                }
+            }
         }
 
-        public void Advance()
-        {
-            foreach (var cell in Cells)
-                cell.DetermineNextLiveState();
-            foreach (var cell in Cells)
-                cell.Advance();
-        }
         private void ConnectNeighbors()
         {
             for (int x = 0; x < Columns; x++)
@@ -156,34 +159,54 @@ namespace cli_life
                     int yT = (y > 0) ? y - 1 : Rows - 1;
                     int yB = (y < Rows - 1) ? y + 1 : 0;
 
-                    Cells[x, y].neighbors.Add(Cells[xL, yT]);
-                    Cells[x, y].neighbors.Add(Cells[x, yT]);
-                    Cells[x, y].neighbors.Add(Cells[xR, yT]);
-                    Cells[x, y].neighbors.Add(Cells[xL, y]);
-                    Cells[x, y].neighbors.Add(Cells[xR, y]);
-                    Cells[x, y].neighbors.Add(Cells[xL, yB]);
-                    Cells[x, y].neighbors.Add(Cells[x, yB]);
-                    Cells[x, y].neighbors.Add(Cells[xR, yB]);
+                    Grid[x, y].AdjacentCells.Add(Grid[xL, yT]);
+                    Grid[x, y].AdjacentCells.Add(Grid[x, yT]);
+                    Grid[x, y].AdjacentCells.Add(Grid[xR, yT]);
+                    Grid[x, y].AdjacentCells.Add(Grid[xL, y]);
+                    Grid[x, y].AdjacentCells.Add(Grid[xR, y]);
+                    Grid[x, y].AdjacentCells.Add(Grid[xL, yB]);
+                    Grid[x, y].AdjacentCells.Add(Grid[x, yB]);
+                    Grid[x, y].AdjacentCells.Add(Grid[xR, yB]);
                 }
             }
         }
-        public (int totalCells, int combinations) CountElements()
+
+        public void Randomize(double liveDensity)
+        {
+            foreach (var cell in Grid)
+            {
+                cell.Active = random.NextDouble() < liveDensity;
+            }
+        }
+
+        public void Advance()
+        {
+            foreach (var cell in Grid)
+            {
+                cell.CalculateNextState();
+            }
+            foreach (var cell in Grid)
+            {
+                cell.UpdateState();
+            }
+        }
+
+        public (int totalCells, int combinations) AnalyzeGrid()
         {
             int totalCells = 0;
             int combinations = 0;
-
             Array.Clear(visited, 0, visited.Length);
 
             for (int x = 0; x < Columns; x++)
             {
                 for (int y = 0; y < Rows; y++)
                 {
-                    if (!visited[x, y] && Cells[x, y].IsAlive)
+                    if (!visited[x, y] && Grid[x, y].Active)
                     {
-                        int combinationSize = ExploreCombination(x, y);
-                        totalCells += combinationSize;
+                        int groupSize = ExploreCellGroup(x, y);
+                        totalCells += groupSize;
 
-                        if (combinationSize > 1)
+                        if (groupSize > 1)
                         {
                             combinations++;
                         }
@@ -194,12 +217,15 @@ namespace cli_life
             return (totalCells, combinations);
         }
 
-        private int ExploreCombination(int x, int y)
+        private int ExploreCellGroup(int x, int y)
         {
-            if (x < 0 || x >= Columns || y < 0 || y >= Rows || visited[x, y] || !Cells[x, y].IsAlive)
+            if (x < 0 || x >= Columns || y < 0 || y >= Rows || 
+                visited[x, y] || !Grid[x, y].Active)
                 return 0;
+
             visited[x, y] = true;
             int size = 1;
+
             for (int dx = -1; dx <= 1; dx++)
             {
                 for (int dy = -1; dy <= 1; dy++)
@@ -209,81 +235,131 @@ namespace cli_life
                     int nx = (x + dx + Columns) % Columns;
                     int ny = (y + dy + Rows) % Rows;
 
-                    size += ExploreCombination(nx, ny);
+                    size += ExploreCellGroup(nx, ny);
                 }
             }
+
             return size;
         }
-
     }
 
-    public class PatternClassifier
+    public class PatternAnalyzer
     {
-        private readonly string path_figure;
-        private static readonly Dictionary<string, string> FigureFiles = new()
+        private readonly string patternsDirectory;
+        private static readonly Dictionary<string, string> PatternFiles = new()
         {
             ["Block"] = "block.txt",
-            ["Blinker"] = "blinker.txt",
-            ["Hive"] = "hive.txt",
-            ["Glider"] = "glider.txt",
-            ["Boat"] = "ellipse.txt"
+            ["Oscillator"] = "blinker.txt",
+            ["Hexagon"] = "hive.txt",
+            ["Spaceship"] = "glider.txt",
+            ["Diamond"] = "ellipse.txt"
         };
 
-        private readonly Dictionary<string, bool[,]> _patterns;
-        private bool[,] _visited;
+        private readonly Dictionary<string, bool[,]> knownPatterns;
+        private bool[,] visitedCells;
 
-        public PatternClassifier(string path_figure)
+        public PatternAnalyzer(string patternsDir)
         {
-            this.path_figure = path_figure;
-            _patterns = LoadPatterns(this.path_figure);
+            if (!Directory.Exists(patternsDir))
+                throw new DirectoryNotFoundException($"Patterns directory not found: {patternsDir}");
+
+            this.patternsDirectory = patternsDir;
+            knownPatterns = LoadKnownPatterns();
+            
+            if (!knownPatterns.ContainsKey("Block"))
+                throw new FileNotFoundException("Required pattern file (block.txt) not found or invalid");
         }
 
-        private Dictionary<string, bool[,]> LoadPatterns(string path_figure)
+        private Dictionary<string, bool[,]> LoadKnownPatterns()
         {
             var patterns = new Dictionary<string, bool[,]>();
 
-            foreach (var kvp in FigureFiles)
+            foreach (var kvp in PatternFiles)
             {
-                string path = Path.Combine(path_figure, kvp.Value);
-                if (File.Exists(path))
+                string fullPath = Path.Combine(patternsDirectory, kvp.Value);
+                
+                if (!File.Exists(fullPath))
                 {
-                    patterns[kvp.Key] = ReadPattern(path);
+                    Console.WriteLine($"Pattern file not found: {fullPath}");
+                    continue;
+                }
+
+                try
+                {
+                    var pattern = ReadPatternFile(fullPath);
+                    if (pattern.Length > 0)
+                    {
+                        patterns[kvp.Key] = pattern;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error loading {kvp.Key}: {ex.Message}");
                 }
             }
+
             return patterns;
         }
 
-        private bool[,] ReadPattern(string path)
+        private bool[,] ReadPatternFile(string path)
         {
-            var lines = File.ReadAllLines(path).Where(l => !string.IsNullOrWhiteSpace(l)).ToArray();
-            var pattern = new bool[lines[0].Length, lines.Length];
+            var lines = File.ReadAllLines(path)
+                        .Where(l => !string.IsNullOrWhiteSpace(l))
+                        .Select(l => l.Trim())
+                        .ToArray();
 
-            for (int y = 0; y < lines.Length; y++)
-                for (int x = 0; x < lines[y].Length; x++)
+            if (lines.Length == 0)
+                return new bool[0, 0];
+
+            int width = lines[0].Length;
+            int height = lines.Length;
+
+            var pattern = new bool[width, height];
+
+            for (int y = 0; y < height; y++)
+            {
+                if (lines[y].Length != width)
+                    throw new InvalidDataException($"Line {y+1} has incorrect length (expected {width}, got {lines[y].Length})");
+
+                for (int x = 0; x < width; x++)
+                {
+                    if (lines[y][x] != '0' && lines[y][x] != '1')
+                        throw new InvalidDataException($"Invalid character at line {y+1}, position {x+1}");
+
                     pattern[x, y] = lines[y][x] == '1';
+                }
+            }
 
             return pattern;
         }
 
-        public Dictionary<string, int> ClassifyBoard(Board board)
+        public Dictionary<string, int> AnalyzePatterns(LifeGrid grid)
         {
-            var result = _patterns.Keys.ToDictionary(k => k, _ => 0);
-            result["Unknown"] = 0;
-            _visited = new bool[board.Columns, board.Rows];
+            var results = knownPatterns.Keys.ToDictionary(k => k, _ => 0);
+            results["Other"] = 0;
+            visitedCells = new bool[grid.Columns, grid.Rows];
 
-            for (int x = 0; x < board.Columns; x++)
-                for (int y = 0; y < board.Rows; y++)
-                    if (!_visited[x, y] && board.Cells[x, y].IsAlive)
+            for (int x = 0; x < grid.Columns; x++)
+            {
+                for (int y = 0; y < grid.Rows; y++)
+                {
+                    if (!visitedCells[x, y] && grid.Grid[x, y].Active)
                     {
-                        var cells = FindCells(board, x, y);
-                        if (cells.Count > 1)
-                            result[Classify(CreatePattern(cells))]++;
+                        var cellGroup = FindCellGroup(grid, x, y);
+                        if (cellGroup.Count > 1)
+                        {
+                            var pattern = CreatePatternMatrix(cellGroup);
+                            var patternType = IdentifyPattern(pattern);
+                            results[patternType]++;
+                        }
                     }
+                }
+            }
 
-            return result;
+            return results;
         }
 
-        private List<(int x, int y)> FindCells(Board board, int startX, int startY)
+        private List<(int x, int y)> FindCellGroup(LifeGrid grid, int startX, int startY)
         {
             var cells = new List<(int x, int y)>();
             var queue = new Queue<(int x, int y)>();
@@ -292,43 +368,70 @@ namespace cli_life
             while (queue.Count > 0)
             {
                 var (x, y) = queue.Dequeue();
-                if (x < 0 || x >= board.Columns || y < 0 || y >= board.Rows ||
-                    _visited[x, y] || !board.Cells[x, y].IsAlive) continue;
+                if (x < 0 || x >= grid.Columns || y < 0 || y >= grid.Rows ||
+                    visitedCells[x, y] || !grid.Grid[x, y].Active) 
+                    continue;
 
-                _visited[x, y] = true;
+                visitedCells[x, y] = true;
                 cells.Add((x, y));
 
+                // Проверяем всех 8 соседей
                 for (int dx = -1; dx <= 1; dx++)
+                {
                     for (int dy = -1; dy <= 1; dy++)
-                        if (dx != 0 || dy != 0)
-                            queue.Enqueue(((x + dx + board.Columns) % board.Columns,
-                                        (y + dy + board.Rows) % board.Rows));
+                    {
+                        if (dx == 0 && dy == 0) continue; // Пропускаем текущую клетку
+
+                        int nx = (x + dx + grid.Columns) % grid.Columns;
+                        int ny = (y + dy + grid.Rows) % grid.Rows;
+                        
+                        queue.Enqueue((nx, ny));
+                    }
+                }
             }
             return cells;
         }
 
-        private bool[,] CreatePattern(List<(int x, int y)> cells)
+        private bool[,] CreatePatternMatrix(List<(int x, int y)> cells)
         {
             int minX = cells.Min(c => c.x), maxX = cells.Max(c => c.x);
             int minY = cells.Min(c => c.y), maxY = cells.Max(c => c.y);
-            var pattern = new bool[maxX - minX + 1, maxY - minY + 1];
+            var matrix = new bool[maxX - minX + 1, maxY - minY + 1];
 
             foreach (var (x, y) in cells)
-                pattern[x - minX, y - minY] = true;
+                matrix[x - minX, y - minY] = true;
 
-            return pattern;
+            return matrix;
         }
 
-        public string Classify(bool[,] pattern)
+        public string IdentifyPattern(bool[,] pattern)
         {
-            foreach (var kvp in _patterns)
-                if (PatternEquals(pattern, kvp.Value))
-                    return kvp.Key;
+            if (pattern == null || pattern.Length == 0)
+                return "Other";
 
-            return "Unknown";
+            foreach (var kvp in knownPatterns)
+            {
+                if (ComparePatterns(pattern, kvp.Value))
+                    return kvp.Key;
+            }
+
+            return "Other";
         }
 
-        private bool PatternEquals(bool[,] a, bool[,] b)
+        private bool ComparePatterns(bool[,] patternA, bool[,] patternB)
+        {
+            if (patternA.Length == 0 || patternB.Length == 0)
+                return false;
+
+            // Проверяем все возможные ориентации
+            return ArePatternsEqual(patternA, patternB) ||
+                ArePatternsEqual(Rotate90(patternA), patternB) ||
+                ArePatternsEqual(Rotate180(patternA), patternB) ||
+                ArePatternsEqual(Rotate270(patternA), patternB) ||
+                ArePatternsEqual(Mirror(patternA), patternB);
+        }
+
+        private bool ArePatternsEqual(bool[,] a, bool[,] b)
         {
             if (a.GetLength(0) != b.GetLength(0) || a.GetLength(1) != b.GetLength(1))
                 return false;
@@ -340,15 +443,48 @@ namespace cli_life
 
             return true;
         }
+
+        private bool[,] Rotate90(bool[,] pattern)
+        {
+            int w = pattern.GetLength(0);
+            int h = pattern.GetLength(1);
+            var result = new bool[h, w];
+
+            for (int x = 0; x < w; x++)
+                for (int y = 0; y < h; y++)
+                    result[y, w - 1 - x] = pattern[x, y];
+
+            return result;
+        }
+
+        private bool[,] Rotate180(bool[,] pattern) => Rotate90(Rotate90(pattern));
+        private bool[,] Rotate270(bool[,] pattern) => Rotate90(Rotate180(pattern));
+
+        private bool[,] Mirror(bool[,] pattern)
+        {
+            int w = pattern.GetLength(0);
+            int h = pattern.GetLength(1);
+            var result = new bool[w, h];
+
+            for (int x = 0; x < w; x++)
+                for (int y = 0; y < h; y++)
+                    result[w - 1 - x, y] = pattern[x, y];
+
+            return result;
+        }
+
+        public Dictionary<string, bool[,]> GetKnownPatternsForTesting() => 
+            new Dictionary<string, bool[,]>(knownPatterns);
     }
-    class Program
+
+    public class LifeSimulation
     {
-        static Board board;
-        static int stable_phases = 0;
-        static int combinations = 0;
-        static int generation = 0;
-        static int min_stable_phases = 10;
-        static readonly Dictionary<ConsoleKey, string> figureMap = new()
+        public static LifeGrid gameGrid;
+        public static int stableGenerations = 0;
+        public static int patternCount = 0;
+        public static int generationCount = 0;
+        public static int requiredStableGenerations = 10;
+        public static readonly Dictionary<ConsoleKey, string> patternKeys = new()
         {
             { ConsoleKey.D1, "glider.txt" },
             { ConsoleKey.D2, "blinker.txt" },
@@ -359,208 +495,240 @@ namespace cli_life
 
         static void Main(string[] args)
         {
-            string proj_path = Directory.GetCurrentDirectory();
-            string prop_path = Path.Combine(proj_path, "Property.json");
-            string file_path = Path.Combine(proj_path, "LifeBoard.txt");
-            LifeProperty life_property = JSONController.Load_from_fson(prop_path);
-            Reset(life_property);
-            RunGameLoop(file_path);
+            string projectDir = Directory.GetCurrentDirectory();
+            string settingsPath = Path.Combine(projectDir, "config.json");
+            string statePath = Path.Combine(projectDir, "game_state.txt");
+            SimulationSettings settings = JsonDataHandler.ImportSettings(settingsPath);
+            InitializeSimulation(settings);
+            RunSimulationLoop(statePath);
+
+            // Для сбора статистики по стабильности:
+            //CalculateStabilityAverages(settingsPath, statePath);
+    
+            // Для сбора данных о поколениях:
+            //CollectStatistics(settingsPath, statePath);
         }
-        static void Avg_gen_stab(string prop_path, string file_path)
+
+        public static void InitializeSimulation(SimulationSettings settings)
         {
-            double density = 0.1;
-            int number_files = 10;
-            List<int> generation_density = [];
-            LifeProperty life_property = JSONController.Load_from_fson(prop_path);
-
-            string outputDir = Path.Combine(Directory.GetCurrentDirectory(), "AvgGenerationStab");
-            if (!Directory.Exists(outputDir))
-            {
-                Directory.CreateDirectory(outputDir);
-            }
-            while (density < 0.9)
-            {
-                life_property.LifeDensity = density;
-                generation_density.Clear();
-                string fileName = $"density_{density:0.0}.txt";
-                string filePath = Path.Combine(outputDir, fileName);
-                string line;
-
-                for (int i = 0; i < number_files; i++)
-                {
-                    Reset(life_property);
-                    generation = 0;
-                    stable_phases = 0;
-                    combinations = 0;
-                    RunGameLoop(file_path);
-                    generation_density.Add(generation);
-                    line = $"{i + 1} - запуск: количество поколений: {generation}\n";
-                    File.AppendAllText(filePath, line);
-                }
-                line = $"Среднее колличество поколений: {Math.Round(generation_density.Average())}\n";
-                File.AppendAllText(filePath, line);
-                density += 0.1;
-            }
-        }
-        static void For_data(string prop_path, string file_path)
-        {
-            double density = 0;
-            double step_density = 0.02;
-            LifeProperty life_property = JSONController.Load_from_fson(prop_path);
-            string outputfile = Path.Combine(Directory.GetCurrentDirectory(), "data.txt");
-            string line = "Density  Generation\n";
-            File.AppendAllText(outputfile, line);
-            while (density < 1.01)
-            {
-                life_property.LifeDensity = density;
-                Reset(life_property);
-                generation = 0;
-                stable_phases = 0;
-                combinations = 0;
-                RunGameLoop(file_path);
-                line = $"{Math.Round(density, 2)} {generation}\n";
-                File.AppendAllText(outputfile, line);
-                density += step_density;
-            }
+            gameGrid = new LifeGrid(
+                settings.Width,
+                settings.Height,
+                settings.CellDimension,
+                settings.Density);
         }
 
-
-        static bool RunGameLoop(string file_path)
+        static bool RunSimulationLoop(string statePath)
         {
             while (true)
             {
-                if (!Click_handler(file_path))
+                if (!ProcessInput(statePath))
                     break;
 
-                if (UpdateGame()) return true;
+                if (UpdateSimulation()) return true;
             }
             return false;
         }
 
-        static bool UpdateGame()
+        static bool UpdateSimulation()
         {
-            Render();
-            generation += 1;
-            Console.WriteLine($"\n Поколение: {generation}");
-            (int totalCells, int combinations_check) = DisplayElementCounts();
-            DisplayClassification();
-            if (Check_stability(combinations_check))
+            DisplayGrid();
+            generationCount++;
+            Console.WriteLine($"\n Generation: {generationCount}");
+            (int totalCells, int currentPatterns) = DisplayAnalysis();
+            DisplayPatternAnalysis();
+            
+            if (CheckStability(currentPatterns))
             {
-                Console.WriteLine("\n Достигнуто состояние стабильности");
+                Console.WriteLine("\n Stable state reached");
                 return true;
             }
-            board.Advance();
+            
+            gameGrid.Advance();
             Thread.Sleep(1000);
             return false;
         }
 
-        static private void Reset(LifeProperty LifeProperty)
-        {
-            board = new Board(
-                LifeProperty.BoardWidth,
-                LifeProperty.BoardHeight,
-                LifeProperty.BoardCellSize,
-                LifeProperty.LifeDensity);
-        }
-
-        static void Render()
+        static void DisplayGrid()
         {
             Console.Clear();
-            var output = new StringBuilder();
-            for (int row = 0; row < board.Rows; row++)
+            var display = new StringBuilder();
+            
+            for (int y = 0; y < gameGrid.Rows; y++)
             {
-                for (int col = 0; col < board.Columns; col++)
+                for (int x = 0; x < gameGrid.Columns; x++)
                 {
-                    output.Append(board.Cells[col, row].IsAlive ? '*' : ' ');
+                    display.Append(gameGrid.Grid[x, y].Active ? '■' : ' ');
                 }
-                output.AppendLine();
+                display.AppendLine();
             }
-            Console.Write(output);
+            Console.Write(display);
         }
 
-        static bool Click_handler(string file_path)
+        static bool ProcessInput(string statePath)
         {
             if (!Console.KeyAvailable)
                 return true;
-            var button = Console.ReadKey(true).Key;
-            switch (button)
+                
+            var key = Console.ReadKey(true).Key;
+            
+            switch (key)
             {
                 case ConsoleKey.L:
-                    TextController.Read_life(board.Cells, file_path);
-                    stable_phases = 0;
-                    combinations = 0;
-                    generation = 0;
+                    FileOperations.ImportState(gameGrid.Grid, statePath);
+                    stableGenerations = 0;
+                    patternCount = 0;
+                    generationCount = 0;
                     break;
                 case ConsoleKey.S:
-                    TextController.Save_life(board.Cells, file_path);
+                    FileOperations.ExportState(gameGrid.Grid, statePath);
                     break;
                 case ConsoleKey.E:
                     return false;
                 default:
-                    HandleFigureLoading(button);
+                    HandlePatternInsertion(key);
                     break;
             }
             return true;
         }
 
-        static void HandleFigureLoading(ConsoleKey button)
+        static void HandlePatternInsertion(ConsoleKey key)
         {
-            if (figureMap.TryGetValue(button, out string figureName))
+            if (patternKeys.TryGetValue(key, out string patternFile))
             {
-                string figurePath = Path.Combine(Directory.GetCurrentDirectory(), "figures", figureName);
-                TextController.Load_figure(board.Cells, figurePath);
+                string fullPath = Path.Combine(Directory.GetCurrentDirectory(), "figures", patternFile);
+                FileOperations.InsertPattern(gameGrid.Grid, fullPath);
             }
         }
-        static (int totalCells, int combinations) DisplayElementCounts()
-        {
-            var (totalCells, combinations) = board.CountElements();
-            Console.WriteLine($"Одиночные клетки: {totalCells}, Комбинации: {combinations}");
-            return (totalCells, combinations);
-        }
-        static void DisplayClassification()
-        {
-            string dir = Path.Combine(Directory.GetCurrentDirectory(), "figures");
-            var classifier = new PatternClassifier(dir);
-            var results = classifier.ClassifyBoard(board);
 
-            Console.WriteLine("\n Найденные фигуры:");
+        static (int total, int patterns) DisplayAnalysis()
+        {
+            (int total, int patterns) = gameGrid.AnalyzeGrid();
+            Console.WriteLine($"Single cells: {total}, Patterns: {patterns}");
+            return (total, patterns);
+        }
+
+        static void DisplayPatternAnalysis()
+        {
+            string patternsDir = Path.Combine(Directory.GetCurrentDirectory(), "figures");
+            var analyzer = new PatternAnalyzer(patternsDir);
+            var results = analyzer.AnalyzePatterns(gameGrid);
+
+            Console.WriteLine("\n Detected patterns:");
             foreach (var kvp in results.Where(r => r.Value > 0))
             {
                 Console.WriteLine($"{kvp.Key}: {kvp.Value}");
             }
         }
-        static bool Check_stability(int combinations_check)
+
+        static bool CheckStability(int currentPatterns)
         {
-            if (stable_phases == 0)
+            if (stableGenerations == 0)
             {
-                stable_phases += 1;
-                combinations = combinations_check;
+                stableGenerations++;
+                patternCount = currentPatterns;
             }
             else
             {
-                if (combinations == combinations_check)
+                if (patternCount == currentPatterns)
                 {
-                    stable_phases += 1;
-                    if (stable_phases == min_stable_phases)
+                    stableGenerations++;
+                    if (stableGenerations == requiredStableGenerations)
                     {
                         return true;
                     }
                 }
-                else if (generation >= 1000 && Math.Abs(combinations - combinations_check) == 1)
+                else if (generationCount >= 1000 && Math.Abs(patternCount - currentPatterns) == 1)
                 {
-                    stable_phases += 1;
-                    if (stable_phases == min_stable_phases)
+                    stableGenerations++;
+                    if (stableGenerations == requiredStableGenerations)
                     {
                         return true;
                     }
                 }
                 else
                 {
-                    stable_phases = 1;
-                    combinations = combinations_check;
+                    stableGenerations = 1;
+                    patternCount = currentPatterns;
                 }
             }
             return false;
+        }
+        static void CollectStatistics(string settingsPath, string statePath)
+        {
+            double density = 0;
+            double densityStep = 0.02;
+            SimulationSettings settings = JsonDataHandler.ImportSettings(settingsPath);
+            string outputFile = Path.Combine(Directory.GetCurrentDirectory(), "data.txt");
+            
+            File.WriteAllText(outputFile, "Density\tGeneration\n");
+
+            while (density < 1.01)
+            {
+                settings.Density = density;
+                InitializeSimulation(settings);
+                generationCount = 0;
+                stableGenerations = 0;
+                patternCount = 0;
+
+                while (true)
+                {
+                    generationCount++;
+                    var analysis = gameGrid.AnalyzeGrid();
+                    
+                    if (CheckStability(analysis.combinations) || generationCount >= 1000)
+                        break;
+                        
+                    gameGrid.Advance();
+                }
+
+                File.AppendAllText(outputFile, $"{Math.Round(density, 2)}\t{generationCount}\n");
+                density += densityStep;
+                
+                Console.WriteLine($"Completed density: {Math.Round(density, 2)}"); 
+            }
+        }
+        static void CalculateStabilityAverages(string settingsPath, string statePath)
+        {
+            double density = 0.1;
+            int simulationRuns = 10;
+            List<int> generationsList = new List<int>();
+            SimulationSettings settings = JsonDataHandler.ImportSettings(settingsPath);
+
+            string outputFolder = Path.Combine(Directory.GetCurrentDirectory(), "StabilityAverages");
+            Directory.CreateDirectory(outputFolder);
+
+            while (density < 0.9)
+            {
+                generationsList.Clear();
+                string fileName = $"density_{density:0.0}.txt";
+                string fullPath = Path.Combine(outputFolder, fileName);
+
+                for (int i = 0; i < simulationRuns; i++)
+                {
+                    InitializeSimulation(settings);
+                    generationCount = 0;
+                    stableGenerations = 0;
+                    patternCount = 0;
+
+                    while (true)
+                    {
+                        generationCount++;
+                        var analysis = gameGrid.AnalyzeGrid();
+
+                        if (CheckStability(analysis.combinations))
+                            break;
+
+                        gameGrid.Advance();
+                    }
+
+                    generationsList.Add(generationCount);
+                    File.AppendAllText(fullPath, $"{i + 1} - run: generations: {generationCount}\n");
+                }
+
+                File.AppendAllText(fullPath, $"Average generations: {Math.Round(generationsList.Average())}\n");
+                density += 0.1;
+            }
         }
     }
 }
